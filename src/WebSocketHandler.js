@@ -1,0 +1,207 @@
+const WebSocket = require("ws");
+const config = require("../config/config");
+
+class WebSocketHandler {
+  constructor(server, meetingManager) {
+    this.meetingManager = meetingManager;
+    this.clients = new Map();
+
+    this.wss = new WebSocket.Server({ server });
+    this.setupWebSocketServer();
+    this.startHeartbeat();
+  }
+
+  setupWebSocketServer() {
+    this.wss.on("connection", (ws) => {
+      console.log("새 클라이언트 연결");
+      this.setupClient(ws);
+    });
+
+    console.log("WebSocket 서버 초기화 완료");
+  }
+
+  setupClient(ws) {
+    ws.isAlive = true;
+    ws.on("pong", () => {
+      ws.isAlive = true;
+    });
+
+    ws.on("message", async (data) => {
+      try {
+        const message = JSON.parse(data);
+        await this.handleMessage(ws, message);
+      } catch (error) {
+        await this.handleAudioData(ws, data);
+      }
+    });
+
+    ws.on("close", () => {
+      this.handleDisconnect(ws);
+    });
+
+    ws.on("error", (error) => {
+      console.error("WebSocket 오류:", error);
+      this.handleDisconnect(ws);
+    });
+  }
+
+  async handleMessage(ws, message) {
+    const { type, meetingId, userId } = message;
+
+    switch (type) {
+      case "join":
+        await this.handleJoin(ws, meetingId, userId);
+        break;
+      case "start_recording":
+        await this.handleStartRecording(meetingId);
+        break;
+      case "stop_recording":
+        await this.handleStopRecording(meetingId);
+        break;
+      case "end_meeting":
+        await this.handleEndMeeting(meetingId);
+        break;
+      case "complete_audio_file":
+        await this.handleCompleteAudioFile(ws, message);
+        break;
+      default:
+        console.log("알 수 없는 메시지 타입:", type);
+    }
+  }
+
+  async handleJoin(ws, meetingId, userId) {
+    this.clients.set(ws, { meetingId, userId });
+
+    const result = await this.meetingManager.joinMeeting(meetingId, userId);
+
+    ws.send(
+      JSON.stringify({
+        type: "joined",
+        meetingId,
+        participants: result.participants,
+      })
+    );
+
+    // 방법 1: 첫 번째 참가자 입장 시 자동 녹음 시작
+    if (result.participants.length === 1) {
+      await this.meetingManager.startRecording(meetingId);
+      this.broadcastToMeeting(meetingId, {
+        type: "recording_started",
+        autoStarted: true,
+        startedBy: userId,
+        message: `첫 번째 참가자(${userId}) 입장으로 녹음이 자동 시작되었습니다`,
+      });
+      console.log(
+        `🔴 자동 녹음 시작: ${meetingId} (첫 번째 참가자: ${userId})`
+      );
+    }
+    // 새 참가자로 인한 파일 생성이 필요한 경우
+    else if (result.shouldCreateFile) {
+      await this.meetingManager.createMergedFile(meetingId);
+      console.log(`📄 새 참가자로 인한 파일 생성: ${meetingId}`);
+    }
+
+    console.log(
+      `👤 ${userId} 님이 ${meetingId} 회의에 참여 (총 ${result.participants.length}명)`
+    );
+  }
+
+  async handleStartRecording(meetingId) {
+    const meeting = this.meetingManager.getMeeting(meetingId);
+    if (meeting && meeting.isRecording) {
+      console.log(`⚠️  이미 녹음 중인 회의: ${meetingId}`);
+      return;
+    }
+
+    await this.meetingManager.startRecording(meetingId);
+    this.broadcastToMeeting(meetingId, {
+      type: "recording_started",
+      autoStarted: false,
+      message: "수동으로 녹음이 시작되었습니다",
+    });
+    console.log(`🔴 수동 녹음 시작: ${meetingId}`);
+  }
+
+  async handleStopRecording(meetingId) {
+    console.log(`⏹️ 녹음 중지 요청: ${meetingId}`);
+
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+
+    await this.meetingManager.stopRecording(meetingId);
+    this.broadcastToMeeting(meetingId, { type: "recording_stopped" });
+    console.log(`⏹️ 녹음 중지 완료: ${meetingId}`);
+  }
+
+  async handleEndMeeting(meetingId) {
+    console.log(`📞 회의 종료 요청: ${meetingId}`);
+
+    // 현재 녹음 중이면 먼저 중지
+    const meeting = this.meetingManager.getMeeting(meetingId);
+    if (meeting && meeting.isRecording) {
+      console.log(`🔄 녹음 중인 회의 종료 처리: ${meetingId}`);
+
+      // 마지막 데이터 수신 대기
+      await new Promise((resolve) => setTimeout(resolve, 5000));
+
+      await this.meetingManager.stopRecording(meetingId);
+    }
+
+    // 추가 대기 후 회의 종료
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+    await this.meetingManager.endMeeting(meetingId);
+
+    this.broadcastToMeeting(meetingId, { type: "meeting_ended" });
+    console.log(`📞 회의 종료 완료: ${meetingId}`);
+  }
+
+  async handleCompleteAudioFile(ws, message) {
+    const client = this.clients.get(ws);
+    if (!client) return;
+
+    console.log(`📦 완전한 오디오 파일 수신: ${message.size} bytes`);
+  }
+
+  async handleAudioData(ws, audioData) {
+    const client = this.clients.get(ws);
+    if (!client) return;
+
+    await this.meetingManager.addCompleteAudioFile(client.meetingId, audioData);
+  }
+
+  broadcastToMeeting(meetingId, message) {
+    this.clients.forEach((client, ws) => {
+      if (client.meetingId === meetingId && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(message));
+      }
+    });
+  }
+
+  handleDisconnect(ws) {
+    const client = this.clients.get(ws);
+    if (client) {
+      this.meetingManager.removeParticipant(client.meetingId, client.userId);
+      this.clients.delete(ws);
+      console.log(`👋 클라이언트 연결 해제: ${client.userId}`);
+    }
+  }
+
+  startHeartbeat() {
+    setInterval(() => {
+      this.wss.clients.forEach((ws) => {
+        if (ws.isAlive === false) {
+          ws.terminate();
+          return;
+        }
+
+        ws.isAlive = false;
+        ws.ping();
+      });
+    }, config.websocket.pingInterval);
+  }
+
+  close() {
+    this.wss.close();
+  }
+}
+
+module.exports = WebSocketHandler;

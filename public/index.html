@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>회의 녹음 시스템</title>
+    <style>
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 20px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+      }
+
+      .container {
+        background: white;
+        padding: 40px;
+        border-radius: 15px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+      }
+
+      h1 {
+        color: #333;
+        text-align: center;
+        margin-bottom: 40px;
+        font-size: 2.5em;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+      }
+
+      .input-group {
+        margin-bottom: 25px;
+      }
+
+      label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 600;
+        color: #555;
+        font-size: 1.1em;
+      }
+
+      input {
+        width: 100%;
+        padding: 15px;
+        border: 2px solid #ddd;
+        border-radius: 8px;
+        font-size: 16px;
+        transition: border-color 0.3s;
+      }
+
+      input:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+      }
+
+      .button-group {
+        display: flex;
+        gap: 15px;
+        margin: 30px 0;
+        flex-wrap: wrap;
+      }
+
+      button {
+        padding: 15px 30px;
+        border: none;
+        border-radius: 8px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+        flex: 1;
+        min-width: 150px;
+      }
+
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none !important;
+      }
+
+      button:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+      }
+
+      .btn-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+      }
+
+      .btn-success {
+        background: linear-gradient(135deg, #56ab2f 0%, #a8e6cf 100%);
+        color: white;
+      }
+
+      .btn-danger {
+        background: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%);
+        color: white;
+      }
+
+      .btn-warning {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        color: white;
+      }
+
+      .status {
+        padding: 20px;
+        margin: 25px 0;
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: 1.1em;
+        text-align: center;
+      }
+
+      .status-normal {
+        background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+        color: #155724;
+        border: 2px solid #c3e6cb;
+      }
+
+      .status-recording {
+        background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+        color: #721c24;
+        border: 2px solid #f5c6cb;
+        animation: pulse 1.5s infinite;
+      }
+
+      @keyframes pulse {
+        0% {
+          transform: scale(1);
+        }
+        50% {
+          transform: scale(1.02);
+        }
+        100% {
+          transform: scale(1);
+        }
+      }
+
+      .participants {
+        background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%);
+        padding: 20px;
+        border-radius: 10px;
+        margin: 25px 0;
+        border: 2px solid #dee2e6;
+      }
+
+      .participants h3 {
+        margin-top: 0;
+        color: #495057;
+        font-size: 1.3em;
+      }
+
+      .participant-list {
+        font-size: 1.1em;
+        color: #6c757d;
+      }
+
+      .auto-notice {
+        background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+        border: 2px solid #ffeaa7;
+        color: #856404;
+        padding: 15px;
+        border-radius: 8px;
+        margin: 20px 0;
+        text-align: center;
+        font-weight: 500;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>🎙️ 자동 회의 녹음 시스템</h1>
+
+      <div class="auto-notice">
+        ✨ 첫 번째 참가자가 입장하면 자동으로 녹음이 시작됩니다
+      </div>
+
+      <div class="input-group">
+        <label for="meetingId">회의 ID</label>
+        <input
+          type="text"
+          id="meetingId"
+          placeholder="회의 ID를 입력하세요"
+          value="meeting-123"
+        />
+      </div>
+
+      <div class="input-group">
+        <label for="userId">사용자 이름</label>
+        <input type="text" id="userId" placeholder="사용자 이름을 입력하세요" />
+      </div>
+
+      <div class="button-group">
+        <button id="joinBtn" class="btn-primary" onclick="joinMeeting()">
+          🚪 회의 참여
+        </button>
+      </div>
+
+      <div class="button-group">
+        <button
+          id="startBtn"
+          class="btn-success"
+          onclick="startRecording()"
+          disabled
+        >
+          🔴 수동 녹음 시작
+        </button>
+        <button
+          id="stopBtn"
+          class="btn-warning"
+          onclick="stopRecording()"
+          disabled
+        >
+          ⏹️ 녹음 중지
+        </button>
+        <button id="endBtn" class="btn-danger" onclick="endMeeting()" disabled>
+          📞 회의 종료
+        </button>
+      </div>
+
+      <div id="status" class="status status-normal">연결 대기 중...</div>
+
+      <div class="participants">
+        <h3>👥 참가자 목록</h3>
+        <div id="participants" class="participant-list">참가자가 없습니다.</div>
+      </div>
+    </div>
+
+    <script>
+      let ws = null;
+      let mediaRecorder = null;
+      let audioStream = null;
+      let isConnected = false;
+      let isRecording = false;
+      let currentMeetingId = null;
+      let recordingInterval = null;
+
+      const elements = {
+        meetingId: document.getElementById("meetingId"),
+        userId: document.getElementById("userId"),
+        status: document.getElementById("status"),
+        participants: document.getElementById("participants"),
+        joinBtn: document.getElementById("joinBtn"),
+        startBtn: document.getElementById("startBtn"),
+        stopBtn: document.getElementById("stopBtn"),
+        endBtn: document.getElementById("endBtn"),
+      };
+
+      function init() {
+        elements.userId.value = generateUserId();
+        updateUI();
+      }
+
+      function generateUserId() {
+        return "user-" + Math.random().toString(36).substr(2, 9);
+      }
+
+      function updateUI() {
+        elements.joinBtn.disabled = isConnected;
+        elements.startBtn.disabled = !isConnected || isRecording;
+        elements.stopBtn.disabled = !isRecording;
+        elements.endBtn.disabled = !isConnected;
+      }
+
+      function updateStatus(message, recording = false) {
+        elements.status.textContent = message;
+        elements.status.className = recording
+          ? "status status-recording"
+          : "status status-normal";
+      }
+
+      function updateParticipants(participants) {
+        if (participants.length === 0) {
+          elements.participants.textContent = "참가자가 없습니다.";
+        } else {
+          elements.participants.textContent = participants.join(", ");
+        }
+      }
+
+      async function joinMeeting() {
+        const meetingId = elements.meetingId.value.trim();
+        const userId = elements.userId.value.trim();
+
+        if (!meetingId || !userId) {
+          alert("회의 ID와 사용자 이름을 모두 입력해주세요.");
+          return;
+        }
+
+        try {
+          currentMeetingId = meetingId;
+          const wsUrl = `${
+            window.location.protocol === "https:" ? "wss:" : "ws:"
+          }//${window.location.host}`;
+          ws = new WebSocket(wsUrl);
+
+          ws.onopen = () => {
+            updateStatus("서버에 연결됨");
+            ws.send(
+              JSON.stringify({
+                type: "join",
+                meetingId: meetingId,
+                userId: userId,
+              })
+            );
+          };
+
+          ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            handleServerMessage(data);
+          };
+
+          ws.onclose = () => {
+            updateStatus("서버 연결이 끊어졌습니다");
+            isConnected = false;
+            isRecording = false;
+            updateUI();
+          };
+
+          ws.onerror = (error) => {
+            updateStatus("연결 오류가 발생했습니다");
+            console.error("WebSocket 오류:", error);
+          };
+        } catch (error) {
+          updateStatus("연결 실패");
+          console.error("연결 실패:", error);
+        }
+      }
+
+      function handleServerMessage(data) {
+        switch (data.type) {
+          case "joined":
+            updateStatus(`회의 '${data.meetingId}'에 참여했습니다`);
+            updateParticipants(data.participants);
+            isConnected = true;
+            updateUI();
+            break;
+
+          case "recording_started":
+            if (data.autoStarted) {
+              updateStatus(`🔴 ${data.message}`, true);
+              if (!isRecording) {
+                startAudioCapture();
+              }
+            } else {
+              updateStatus("🔴 수동으로 녹음이 시작되었습니다", true);
+            }
+            isRecording = true;
+            updateUI();
+            break;
+
+          case "recording_stopped":
+            updateStatus("⏹️ 녹음이 중지되었습니다");
+            stopAudioCapture();
+            isRecording = false;
+            updateUI();
+            break;
+
+          case "meeting_ended":
+            updateStatus("📞 회의가 종료되었습니다");
+            stopAudioCapture();
+            isConnected = false;
+            isRecording = false;
+            updateUI();
+            break;
+        }
+      }
+
+      async function startAudioCapture() {
+        try {
+          audioStream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              sampleRate: 44100,
+              channelCount: 1,
+              echoCancellation: true,
+              noiseSuppression: true,
+            },
+          });
+
+          mediaRecorder = new MediaRecorder(audioStream, {
+            mimeType: "audio/webm;codecs=opus",
+          });
+
+          let recordingChunks = [];
+
+          mediaRecorder.ondataavailable = (event) => {
+            if (event.data.size > 0) {
+              recordingChunks.push(event.data);
+            }
+          };
+
+          mediaRecorder.onstop = () => {
+            if (recordingChunks.length > 0) {
+              const completeBlob = new Blob(recordingChunks, {
+                type: "audio/webm",
+              });
+
+              completeBlob.arrayBuffer().then((buffer) => {
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                  ws.send(
+                    JSON.stringify({
+                      type: "complete_audio_file",
+                      meetingId: currentMeetingId,
+                      size: buffer.byteLength,
+                    })
+                  );
+                  ws.send(buffer);
+                }
+              });
+              recordingChunks = [];
+            }
+          };
+
+          recordingInterval = setInterval(() => {
+            if (mediaRecorder && mediaRecorder.state === "recording") {
+              mediaRecorder.stop();
+
+              setTimeout(() => {
+                if (isRecording) {
+                  mediaRecorder.start();
+                }
+              }, 100);
+            }
+          }, 5000);
+
+          mediaRecorder.start();
+        } catch (error) {
+          updateStatus("마이크 접근 권한이 필요합니다");
+          console.error("마이크 접근 오류:", error);
+          alert("마이크 접근 권한을 허용해주세요.");
+        }
+      }
+
+      function stopAudioCapture() {
+        if (recordingInterval) {
+          clearInterval(recordingInterval);
+          recordingInterval = null;
+        }
+
+        if (mediaRecorder && mediaRecorder.state === "recording") {
+          mediaRecorder.stop();
+        }
+
+        if (audioStream) {
+          audioStream.getTracks().forEach((track) => track.stop());
+        }
+      }
+
+      async function startRecording() {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(
+            JSON.stringify({
+              type: "start_recording",
+              meetingId: currentMeetingId,
+            })
+          );
+
+          if (!isRecording) {
+            await startAudioCapture();
+          }
+        }
+      }
+
+      function stopRecording() {
+        stopAudioCapture();
+
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(
+            JSON.stringify({
+              type: "stop_recording",
+              meetingId: currentMeetingId,
+            })
+          );
+        }
+      }
+
+      function endMeeting() {
+        if (isRecording) {
+          stopRecording();
+        }
+
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(
+            JSON.stringify({
+              type: "end_meeting",
+              meetingId: currentMeetingId,
+            })
+          );
+        }
+      }
+
+      window.addEventListener("beforeunload", () => {
+        if (isRecording) {
+          stopRecording();
+        }
+        if (ws) {
+          ws.close();
+        }
+      });
+
+      init();
+    </script>
+  </body>
+</html>
