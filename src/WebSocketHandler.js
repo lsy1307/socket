@@ -97,10 +97,10 @@ class WebSocketHandler {
     }
     // 새 참가자로 인한 파일 생성이 필요한 경우
     else if (result.shouldCreateFile) {
-      await this.meetingManager.createMergedFile(meetingId);
-      console.log(`📄 새 참가자로 인한 파일 생성: ${meetingId}`);
+      this.meetingManager
+        .createMergedFile(meetingId)
+        .catch((err) => console.error("병합 실패:", err));
     }
-
     console.log(
       `👤 ${userId} 님이 ${meetingId} 회의에 참여 (총 ${result.participants.length}명)`
     );

@@ -1,5 +1,5 @@
-const path = require("path"); // 이 줄 추가
-const fs = require("fs-extra"); // 필요시 추가
+const path = require("path");
+const fs = require("fs-extra");
 const AudioProcessor = require("./AudioProcessor");
 
 class MeetingManager {
@@ -52,7 +52,6 @@ class MeetingManager {
     console.log(`🔄 녹음 중지 처리 시작: ${meetingId}`);
     meeting.isRecording = false;
 
-    // 현재 수집된 파일들이 있으면 누적 파일 생성
     if (meeting.completeFiles && meeting.completeFiles.length > 0) {
       console.log(
         `📁 마지막 세그먼트 처리: ${meeting.completeFiles.length}개 파일`
@@ -72,13 +71,11 @@ class MeetingManager {
 
     console.log(`🔄 회의 종료 처리 시작: ${meetingId}`);
 
-    // 아직 녹음 중이면 중지 처리
     if (meeting.isRecording) {
       console.log(`⚠️ 녹음 중인 상태에서 회의 종료: ${meetingId}`);
       await this.stopRecording(meetingId);
     }
 
-    // 최종 파일을 finalFiles에 추가
     if (meeting.cumulativeFile) {
       meeting.finalFiles = meeting.finalFiles || [];
       meeting.finalFiles.push(meeting.cumulativeFile);
@@ -87,7 +84,6 @@ class MeetingManager {
       );
     }
 
-    // 혹시 처리되지 않은 완전한 파일들이 있다면 마지막으로 처리
     if (meeting.completeFiles && meeting.completeFiles.length > 0) {
       console.log(
         `⚠️ 미처리 파일 발견, 마지막 처리: ${meeting.completeFiles.length}개`
@@ -135,9 +131,12 @@ class MeetingManager {
     const timestamp = Date.now();
 
     try {
+      // 🔑 핵심 수정: 현재 파일들을 복사해서 처리
+      const filesToProcess = [...meeting.completeFiles];
+
       const currentSegmentFile = await this.audioProcessor.createMergedFile(
         `${meetingId}_segment`,
-        meeting.completeFiles
+        filesToProcess
       );
 
       if (!currentSegmentFile) {
@@ -174,8 +173,9 @@ class MeetingManager {
         `📁 현재 세그먼트 파일 보존: ${path.basename(currentSegmentFile)}`
       );
 
-      meeting.cumulativeFile = newCumulativeFile;
+      // 🔑 핵심 수정: 병합 완료 후에만 리셋
       meeting.completeFiles = [];
+      meeting.cumulativeFile = newCumulativeFile;
 
       console.log(`✅ 누적 병합 완료: ${newCumulativeFile}`);
       return newCumulativeFile;
