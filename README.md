@@ -4,7 +4,8 @@
 
 # 사용방법
 ## 시작하기
-     terminal
+     terminal에서
+     npm install
      npm start 
 이후 localhost:3000으로 접속하면 테스트 프론트엔드 화면이 나옵니다.
 ![image](https://github.com/user-attachments/assets/87f3dc5f-7b95-4ef0-aa8b-87140c151954)
