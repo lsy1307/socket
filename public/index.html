@@ -351,7 +351,12 @@
             isRecording = true;
             updateUI();
             break;
-
+          case "recording_already_started": // 🔑 새 이벤트 추가
+            if (!isRecording) {
+              startAudioCapture();
+              updateStatus("기존 녹음에 참여함");
+            }
+            break;
           case "recording_stopped":
             updateStatus("⏹️ 녹음이 중지되었습니다");
             stopAudioCapture();

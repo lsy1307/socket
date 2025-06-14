@@ -33,6 +33,7 @@ class MeetingManager {
     return {
       participants: Array.from(meeting.participants),
       shouldCreateFile,
+      isRecording: meeting.isRecording,
     };
   }
 

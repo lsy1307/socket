@@ -79,10 +79,11 @@ class WebSocketHandler {
         type: "joined",
         meetingId,
         participants: result.participants,
+        isRecording: result.isRecording, // 🔑 현재 녹음 상태 추가
       })
     );
 
-    // 방법 1: 첫 번째 참가자 입장 시 자동 녹음 시작
+    // 첫 번째 참가자 - 자동 녹음 시작
     if (result.participants.length === 1) {
       await this.meetingManager.startRecording(meetingId);
       this.broadcastToMeeting(meetingId, {
@@ -91,16 +92,26 @@ class WebSocketHandler {
         startedBy: userId,
         message: `첫 번째 참가자(${userId}) 입장으로 녹음이 자동 시작되었습니다`,
       });
-      console.log(
-        `🔴 자동 녹음 시작: ${meetingId} (첫 번째 참가자: ${userId})`
-      );
     }
-    // 새 참가자로 인한 파일 생성이 필요한 경우
-    else if (result.shouldCreateFile) {
-      this.meetingManager
-        .createMergedFile(meetingId)
-        .catch((err) => console.error("병합 실패:", err));
+    // 🔑 두 번째 참가자부터 - 이미 녹음 중이면 개별적으로 알림
+    else {
+      const meeting = this.meetingManager.getMeeting(meetingId);
+      if (meeting && meeting.isRecording) {
+        ws.send(
+          JSON.stringify({
+            type: "recording_already_started",
+            message: "이미 녹음이 진행 중입니다",
+          })
+        );
+      }
+
+      if (result.shouldCreateFile) {
+        this.meetingManager
+          .createMergedFile(meetingId)
+          .catch((err) => console.error("병합 실패:", err));
+      }
     }
+
     console.log(
       `👤 ${userId} 님이 ${meetingId} 회의에 참여 (총 ${result.participants.length}명)`
     );
