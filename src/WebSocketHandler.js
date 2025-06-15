@@ -178,6 +178,70 @@ class WebSocketHandler {
 
     await this.meetingManager.addCompleteAudioFile(client.meetingId, audioData);
   }
+  // sendPDFLinkToMeeting() {
+  //   const message = JSON.stringify({
+  //     type: "pdf_link",
+  //     meetingId: "001",
+  //     title: "title",
+  //     createdAt: new Date().toISOString().split("T")[0], // YYYY-MM-DD 형식
+  //     summaryText: {
+  //       summary: "",
+  //       keywords: null,
+  //       decisions: [],
+  //       todo: null,
+  //       qa: null,
+  //     },
+  //     pdfLinks: "pdfUrl",
+  //   });
+
+  //   console.log(`📄 PDF 링크와 요약 전송 to ${meetingId}: ${title}`);
+
+  //   let sentCount = 0;
+  //   this.clients.forEach((client, ws) => {
+  //     if (client.meetingId === meetingId && ws.readyState === WebSocket.OPEN) {
+  //       ws.send(message);
+  //       sentCount++;
+  //     }
+  //   });
+
+  //   console.log(`✅ ${sentCount}명에게 회의 요약 전송 완료`);
+  //   return sentCount;
+  // }
+  sendPDFLinkAfterDelay(meetingId = "001") {
+    console.log(`⏰ 10초 후 PDF 링크 전송 예약: ${meetingId}`);
+
+    setTimeout(() => {
+      const message = JSON.stringify({
+        type: "pdf_link",
+        meetingId: meetingId,
+        title: "title",
+        createdAt: new Date().toISOString().split("T")[0], // YYYY-MM-DD 형식
+        summaryText: {
+          summary: "",
+          keywords: null,
+          decisions: [],
+          todo: null,
+          qa: null,
+        },
+        pdfLinks: "pdfUrl",
+      });
+
+      console.log(`📄 10초 후 PDF 링크 전송 실행: ${meetingId}`);
+
+      let sentCount = 0;
+      this.clients.forEach((client, ws) => {
+        if (
+          client.meetingId === meetingId &&
+          ws.readyState === WebSocket.OPEN
+        ) {
+          ws.send(message);
+          sentCount++;
+        }
+      });
+
+      console.log(`✅ ${sentCount}명에게 PDF 링크 전송 완료`);
+    }, 10000); // 10초 = 10000ms
+  }
 
   broadcastToMeeting(meetingId, message) {
     this.clients.forEach((client, ws) => {

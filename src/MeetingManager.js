@@ -1,7 +1,7 @@
 const path = require("path");
 const fs = require("fs-extra");
 const AudioProcessor = require("./AudioProcessor");
-
+const { uploadFile } = require("./API");
 class MeetingManager {
   constructor() {
     this.meetings = new Map();
@@ -132,12 +132,30 @@ class MeetingManager {
     const timestamp = Date.now();
 
     try {
-      // 🔑 핵심 수정: 현재 파일들을 복사해서 처리
-      const filesToProcess = [...meeting.completeFiles];
+      // 🔑 새로운 파일들만 필터링
+      const processedFiles = meeting.processedFiles || new Set();
+      const newFiles = meeting.completeFiles.filter(
+        (file) => !processedFiles.has(file)
+      );
+
+      if (newFiles.length === 0) {
+        console.log("⚠️ 새로운 파일이 없음 - 중복 처리 방지");
+        meeting.completeFiles = [];
+        return meeting.cumulativeFile;
+      }
+
+      console.log(
+        `🔄 새로운 파일만 처리: ${newFiles.length}개 (전체: ${meeting.completeFiles.length}개)`
+      );
+
+      // 처리된 파일들 추적에 추가
+      newFiles.forEach((file) => processedFiles.add(file));
+      meeting.processedFiles = processedFiles;
+      meeting.completeFiles = [];
 
       const currentSegmentFile = await this.audioProcessor.createMergedFile(
-        `${meetingId}_segment`,
-        filesToProcess
+        `${meetingId}_segment_${timestamp}`,
+        newFiles // 🔑 새로운 파일들만 사용
       );
 
       if (!currentSegmentFile) {
@@ -151,16 +169,12 @@ class MeetingManager {
         meeting.cumulativeFile &&
         (await fs.pathExists(meeting.cumulativeFile))
       ) {
-        console.log(`📎 이전 파일과 병합: ${meeting.cumulativeFile}`);
+        console.log(`📎 이전 누적 파일과 새 세그먼트 병합`);
 
         newCumulativeFile = await this.audioProcessor.mergeTwoFiles(
           meeting.cumulativeFile,
           currentSegmentFile,
           `${meetingId}_cumulative_${timestamp}`
-        );
-
-        console.log(
-          `📁 이전 누적 파일 보존: ${path.basename(meeting.cumulativeFile)}`
         );
       } else {
         console.log(`📎 첫 번째 누적 파일 생성`);
@@ -170,19 +184,64 @@ class MeetingManager {
         );
       }
 
-      console.log(
-        `📁 현재 세그먼트 파일 보존: ${path.basename(currentSegmentFile)}`
+      await this.cleanupSegmentFiles(
+        newFiles,
+        currentSegmentFile,
+        newCumulativeFile
       );
-
-      // 🔑 핵심 수정: 병합 완료 후에만 리셋
-      meeting.completeFiles = [];
       meeting.cumulativeFile = newCumulativeFile;
 
-      console.log(`✅ 누적 병합 완료: ${newCumulativeFile}`);
+      console.log(`✅ 누적 병합 완료: ${path.basename(newCumulativeFile)}`);
+      try {
+        const customKey = `${path.basename(newCumulativeFile)}`;
+        const uploadResult = await uploadFile(newCumulativeFile, customKey);
+        console.log(`☁️ S3 업로드 성공: ${uploadResult}`);
+      } catch (uploadError) {
+        console.error(`❌ S3 업로드 실패: ${uploadError.message}`);
+        // 업로드 실패해도 로컬 파일은 유지
+      }
       return newCumulativeFile;
     } catch (error) {
       console.error("❌ 누적 병합 실패:", error);
       return null;
+    }
+  }
+
+  // 🔑 별도 함수로 정리 로직 분리
+  async cleanupSegmentFiles(
+    segmentFiles,
+    currentSegmentFile,
+    newCumulativeFile
+  ) {
+    console.log(`🗑️ 세그먼트 파일 정리: ${segmentFiles.length}개`);
+
+    // 원본 세그먼트 파일들 삭제
+    for (const file of segmentFiles) {
+      try {
+        if (await fs.pathExists(file)) {
+          await fs.remove(file);
+          console.log(`✅ 삭제: ${path.basename(file)}`);
+        }
+      } catch (error) {
+        console.error(`❌ 삭제 실패: ${path.basename(file)}`);
+      }
+    }
+
+    // 현재 세그먼트 파일 삭제 (누적 파일과 다른 경우)
+    if (
+      currentSegmentFile !== newCumulativeFile &&
+      (await fs.pathExists(currentSegmentFile))
+    ) {
+      try {
+        await fs.remove(currentSegmentFile);
+        console.log(
+          `✅ 현재 세그먼트 삭제: ${path.basename(currentSegmentFile)}`
+        );
+      } catch (error) {
+        console.error(
+          `❌ 현재 세그먼트 삭제 실패: ${path.basename(currentSegmentFile)}`
+        );
+      }
     }
   }
 

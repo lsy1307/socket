@@ -90,14 +90,14 @@ class AudioProcessor {
         .audioFrequency(config.audio?.frequency || 44100)
         .on("end", () => {
           console.log(`🎵 단일 파일 변환 완료: ${path.basename(outputFile)}`);
-          // this.deleteFile(inputFile); // 중간 파일 삭제하지 않음
+          this.deleteFile(inputFile); // 중간 파일 삭제하지 않음
           resolve(outputFile);
         })
         .on("error", (conversionErr) => {
           console.log("MP3 변환 실패, AAC로 시도...");
           this.convertToAAC(inputFile, outputFile.replace(".mp3", ".m4a"))
             .then((aacFile) => {
-              // this.deleteFile(inputFile); // 중간 파일 삭제하지 않음
+              this.deleteFile(inputFile); // 중간 파일 삭제하지 않음
               resolve(aacFile);
             })
             .catch(reject);
@@ -136,7 +136,6 @@ class AudioProcessor {
       const filterComplex =
         validFiles.map((_, index) => `[${index}:a]`).join("") +
         `concat=n=${validFiles.length}:v=0:a=1[outa]`;
-
       command
         .complexFilter(filterComplex)
         .outputOptions(["-map", "[outa]"])
@@ -146,9 +145,9 @@ class AudioProcessor {
         .audioFrequency(config.audio?.frequency || 44100)
         .on("end", () => {
           console.log(`🎵 다중 파일 병합 완료: ${path.basename(outputFile)}`);
-          // validFiles.forEach(file => {
-          //   this.deleteFile(file); // 중간 파일들 삭제하지 않음
-          // });
+          validFiles.forEach((file) => {
+            this.deleteFile(file); // 중간 파일들 삭제하지 않음
+          });
           console.log(`📁 중간 WebM 파일들 보존됨: ${validFiles.length}개`);
           resolve(outputFile);
         })
@@ -156,9 +155,9 @@ class AudioProcessor {
           console.log("MP3 병합 실패, AAC로 시도...");
           this.mergeToAAC(validFiles, outputFile.replace(".mp3", ".m4a"))
             .then((aacFile) => {
-              // validFiles.forEach(file => {
-              //   this.deleteFile(file); // 중간 파일들 삭제하지 않음
-              // });
+              validFiles.forEach((file) => {
+                this.deleteFile(file); // 중간 파일들 삭제하지 않음
+              });
               console.log(`📁 중간 WebM 파일들 보존됨: ${validFiles.length}개`);
               resolve(aacFile);
             })
