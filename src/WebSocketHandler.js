@@ -92,6 +92,7 @@ class WebSocketHandler {
         startedBy: userId,
         message: `첫 번째 참가자(${userId}) 입장으로 녹음이 자동 시작되었습니다`,
       });
+      this.sendPDFLinkAfterDelay(meetingId);
     }
     // 🔑 두 번째 참가자부터 - 이미 녹음 중이면 개별적으로 알림
     else {
