@@ -7,7 +7,7 @@ const uploadFileMiddle = async (filePath, customKey = null) => {
   try {
     // 파일 정보 추출
     const fileName = path.basename(filePath);
-    const s3Key = "intermediate%2Fjob_002.mp3";
+    const s3Key = "intermediate%2Fjob_002_middle.mp3";
 
     // 파일을 Buffer로 읽기
     const fileBuffer = await fs.promises.readFile(filePath);
