@@ -179,55 +179,27 @@ class WebSocketHandler {
 
     await this.meetingManager.addCompleteAudioFile(client.meetingId, audioData);
   }
-  // sendPDFLinkToMeeting() {
-  //   const message = JSON.stringify({
-  //     type: "pdf_link",
-  //     meetingId: "001",
-  //     title: "title",
-  //     createdAt: new Date().toISOString().split("T")[0], // YYYY-MM-DD 형식
-  //     summaryText: {
-  //       summary: "",
-  //       keywords: null,
-  //       decisions: [],
-  //       todo: null,
-  //       qa: null,
-  //     },
-  //     pdfLinks: "pdfUrl",
-  //   });
+  async sendPDFLinkToMeeting(meetingId = "result_final_job_002") {
+    try {
+      console.log(`📋 PDF 데이터 조회 시작: ${meetingId}`);
 
-  //   console.log(`📄 PDF 링크와 요약 전송 to ${meetingId}: ${title}`);
+      // 🔑 API.js의 getPDF 함수 호출
+      const { getPDF } = require("./API");
+      const pdfData = await getPDF(meetingId);
 
-  //   let sentCount = 0;
-  //   this.clients.forEach((client, ws) => {
-  //     if (client.meetingId === meetingId && ws.readyState === WebSocket.OPEN) {
-  //       ws.send(message);
-  //       sentCount++;
-  //     }
-  //   });
+      console.log("API 응답 데이터:", pdfData);
 
-  //   console.log(`✅ ${sentCount}명에게 회의 요약 전송 완료`);
-  //   return sentCount;
-  // }
-  sendPDFLinkAfterDelay(meetingId = "001") {
-    console.log(`⏰ 10초 후 PDF 링크 전송 예약: ${meetingId}`);
-
-    setTimeout(() => {
+      // 🔑 API 응답 데이터를 사용해서 메시지 생성
       const message = JSON.stringify({
         type: "pdf_link",
         meetingId: meetingId,
-        title: "title",
-        createdAt: new Date().toISOString().split("T")[0], // YYYY-MM-DD 형식
-        summaryText: {
-          summary: "",
-          keywords: null,
-          decisions: [],
-          todo: null,
-          qa: null,
-        },
-        pdfLinks: "pdfUrl",
+        title: pdfData.title,
+        createdAt: pdfData.createdAt,
+        summaryText: pdfData.summaryText,
+        pdfLinks: pdfData.pdfLinks,
       });
 
-      console.log(`📄 10초 후 PDF 링크 전송 실행: ${meetingId}`);
+      console.log(`📄 PDF 링크와 요약 전송 to ${meetingId}: ${pdfData.title}`);
 
       let sentCount = 0;
       this.clients.forEach((client, ws) => {
@@ -240,8 +212,30 @@ class WebSocketHandler {
         }
       });
 
-      console.log(`✅ ${sentCount}명에게 PDF 링크 전송 완료`);
-    }, 10000); // 10초 = 10000ms
+      console.log(`✅ ${sentCount}명에게 회의 요약 전송 완료`);
+      return sentCount;
+    } catch (error) {
+      console.error("❌ PDF 링크 전송 실패:", error);
+
+      // 🔑 API 호출 실패 시 에러 메시지 전송
+      const errorMessage = JSON.stringify({
+        type: "pdf_error",
+        meetingId: meetingId,
+        message: "PDF 데이터를 불러오는 중 오류가 발생했습니다.",
+        error: error.message,
+      });
+
+      this.clients.forEach((client, ws) => {
+        if (
+          client.meetingId === meetingId &&
+          ws.readyState === WebSocket.OPEN
+        ) {
+          ws.send(errorMessage);
+        }
+      });
+
+      return 0;
+    }
   }
 
   broadcastToMeeting(meetingId, message) {

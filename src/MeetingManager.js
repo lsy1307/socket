@@ -1,7 +1,7 @@
 const path = require("path");
 const fs = require("fs-extra");
 const AudioProcessor = require("./AudioProcessor");
-const { uploadFile } = require("./API");
+const { uploadFileMiddle, uploadFileFinal } = require("./API");
 class MeetingManager {
   constructor() {
     this.meetings = new Map();
@@ -57,7 +57,7 @@ class MeetingManager {
       console.log(
         `📁 마지막 세그먼트 처리: ${meeting.completeFiles.length}개 파일`
       );
-      await this.createCumulativeFile(meetingId);
+      await this.createCumulativeFile(meetingId, true);
     } else {
       console.log(`ℹ️ 처리할 새 세그먼트 없음: ${meetingId}`);
     }
@@ -89,7 +89,7 @@ class MeetingManager {
       console.log(
         `⚠️ 미처리 파일 발견, 마지막 처리: ${meeting.completeFiles.length}개`
       );
-      const lastFile = await this.createCumulativeFile(meetingId);
+      const lastFile = await this.createCumulativeFile(meetingId, true);
       if (lastFile && !meeting.finalFiles.includes(lastFile)) {
         meeting.finalFiles.push(lastFile);
       }
@@ -120,7 +120,7 @@ class MeetingManager {
     }
   }
 
-  async createCumulativeFile(meetingId) {
+  async createCumulativeFile(meetingId, isEndingMeeting = false) {
     const meeting = this.meetings.get(meetingId);
     if (
       !meeting ||
@@ -130,6 +130,7 @@ class MeetingManager {
       return null;
 
     const timestamp = Date.now();
+    let uploadResult = null;
 
     try {
       // 🔑 새로운 파일들만 필터링
@@ -194,8 +195,15 @@ class MeetingManager {
       console.log(`✅ 누적 병합 완료: ${path.basename(newCumulativeFile)}`);
       try {
         const customKey = `${path.basename(newCumulativeFile)}`;
-        const uploadResult = await uploadFile(newCumulativeFile, customKey);
-        console.log(`☁️ S3 업로드 성공: ${uploadResult}`);
+        if (isEndingMeeting) {
+          // 회의 종료 시 최종 업로드
+          uploadResult = await uploadFileFinal(newCumulativeFile, customKey);
+          console.log(`☁️ 최종 파일 S3 업로드 성공: ${uploadResult.s3Url}`);
+        } else {
+          // 회의 중 중간 업로드
+          uploadResult = await uploadFileMiddle(newCumulativeFile, customKey);
+          console.log(`☁️ 중간 파일 S3 업로드 성공: ${uploadResult.s3Url}`);
+        }
       } catch (uploadError) {
         console.error(`❌ S3 업로드 실패: ${uploadError.message}`);
         // 업로드 실패해도 로컬 파일은 유지
