@@ -203,10 +203,7 @@ class WebSocketHandler {
 
       let sentCount = 0;
       this.clients.forEach((client, ws) => {
-        if (
-          client.meetingId === meetingId &&
-          ws.readyState === WebSocket.OPEN
-        ) {
+        if (ws.readyState === WebSocket.OPEN) {
           ws.send(message);
           sentCount++;
         }
@@ -226,10 +223,7 @@ class WebSocketHandler {
       });
 
       this.clients.forEach((client, ws) => {
-        if (
-          client.meetingId === meetingId &&
-          ws.readyState === WebSocket.OPEN
-        ) {
+        if (ws.readyState === WebSocket.OPEN) {
           ws.send(errorMessage);
         }
       });
@@ -281,10 +275,7 @@ class WebSocketHandler {
 
       let sentCount = 0;
       this.clients.forEach((client, ws) => {
-        if (
-          client.meetingId === meetingId &&
-          ws.readyState === WebSocket.OPEN
-        ) {
+        if (ws.readyState === WebSocket.OPEN) {
           ws.send(message);
           sentCount++;
         }
@@ -304,10 +295,7 @@ class WebSocketHandler {
       });
 
       this.clients.forEach((client, ws) => {
-        if (
-          client.meetingId === meetingId &&
-          ws.readyState === WebSocket.OPEN
-        ) {
+        if (ws.readyState === WebSocket.OPEN) {
           ws.send(errorMessage);
         }
       });
@@ -318,7 +306,7 @@ class WebSocketHandler {
 
   broadcastToMeeting(meetingId, message) {
     this.clients.forEach((client, ws) => {
-      if (client.meetingId === meetingId && ws.readyState === WebSocket.OPEN) {
+      if (ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify(message));
       }
     });
