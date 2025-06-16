@@ -237,6 +237,84 @@ class WebSocketHandler {
       return 0;
     }
   }
+  async sendIntermediateSummary(meetingId = "result_final_job_002") {
+    try {
+      console.log(`📋 중간 요약 데이터 조회 시작: ${meetingId}`);
+
+      // 🔑 API.js의 getMeetingInfo 함수 호출
+      const { getMeetingInfo } = require("./API");
+      const summaryData = await getMeetingInfo(meetingId);
+
+      console.log("중간 요약 API 응답 데이터:", summaryData);
+
+      // 🔑 summaryText JSON 파싱 (검색 결과[3] 참고)
+      let parsedSummaryText;
+      try {
+        if (typeof summaryData.summaryText === "string") {
+          parsedSummaryText = JSON.parse(summaryData.summaryText);
+          console.log("✅ summaryText JSON 파싱 성공");
+        } else {
+          parsedSummaryText = summaryData.summaryText;
+        }
+      } catch (parseError) {
+        console.error("❌ summaryText 파싱 실패:", parseError);
+        parsedSummaryText = {
+          summary: "",
+          keywords: null,
+          decisions: [],
+          todo: null,
+          qa: null,
+        };
+      }
+
+      // 🔑 pdfLinks 제외한 중간 요약 메시지 생성
+      const message = JSON.stringify({
+        type: "intermediate_summary", // 타입 변경으로 구분
+        meetingId: meetingId,
+        title: summaryData.title || "회의 중간 요약",
+        createdAt: summaryData.createdAt,
+        summaryText: parsedSummaryText, // 파싱된 객체 사용
+        // pdfLinks는 제외
+      });
+
+      console.log(`📄 중간 요약 전송 to ${meetingId}: ${summaryData.title}`);
+
+      let sentCount = 0;
+      this.clients.forEach((client, ws) => {
+        if (
+          client.meetingId === meetingId &&
+          ws.readyState === WebSocket.OPEN
+        ) {
+          ws.send(message);
+          sentCount++;
+        }
+      });
+
+      console.log(`✅ ${sentCount}명에게 중간 요약 전송 완료`);
+      return sentCount;
+    } catch (error) {
+      console.error("❌ 중간 요약 전송 실패:", error);
+
+      // 🔑 API 호출 실패 시 에러 메시지 전송
+      const errorMessage = JSON.stringify({
+        type: "summary_error",
+        meetingId: meetingId,
+        message: "중간 요약 데이터를 불러오는 중 오류가 발생했습니다.",
+        error: error.message,
+      });
+
+      this.clients.forEach((client, ws) => {
+        if (
+          client.meetingId === meetingId &&
+          ws.readyState === WebSocket.OPEN
+        ) {
+          ws.send(errorMessage);
+        }
+      });
+
+      return 0;
+    }
+  }
 
   broadcastToMeeting(meetingId, message) {
     this.clients.forEach((client, ws) => {

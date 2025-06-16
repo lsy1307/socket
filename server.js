@@ -1,12 +1,18 @@
 const MeetingServer = require("./src/MeetingServer");
-const createWebhookRouter = require("./src/AwsJobTrigger");
+const {
+  createWebhookRouter,
+  createWebhookRouter2,
+} = require("./src/AwsJobTrigger"); // 🔑 구조분해할당
 
-// 🔑 MeetingServer 인스턴스 생성
+// MeetingServer 인스턴스 생성
 const meetingServer = new MeetingServer();
 
-// 🔑 웹훅 라우터를 Express 앱에 추가
+// 🔑 두 웹훅 라우터 모두 등록
 const webhookRouter = createWebhookRouter(meetingServer.wsHandler);
-meetingServer.app.use("/api", webhookRouter);
+const webhookRouter2 = createWebhookRouter2(meetingServer.wsHandler);
+
+meetingServer.app.use("/api", webhookRouter); // /api/webhook/complete
+meetingServer.app.use("/api", webhookRouter2); // /api/webhook/complete2
 
 // 서버 시작
 meetingServer.start();
