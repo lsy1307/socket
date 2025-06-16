@@ -7,7 +7,8 @@ const uploadFileMiddle = async (filePath, customKey = null) => {
   try {
     // 파일 정보 추출
     const fileName = path.basename(filePath);
-    const s3Key = "intermediate%2Fjob_002_middle.mp3";
+    const date = new Date().getMilliseconds();
+    const s3Key = `intermediate%2F${date}middle.mp3`;
 
     // 파일을 Buffer로 읽기
     const fileBuffer = await fs.promises.readFile(filePath);
@@ -64,7 +65,8 @@ const uploadFileFinal = async (filePath, customKey = null) => {
   try {
     // 파일 정보 추출
     const fileName = path.basename(filePath);
-    const s3Key = "final%2Fjob_002.mp3";
+    const date = new Date().getMilliseconds();
+    const s3Key = `final%2F${date}.mp3`;
 
     // 파일을 Buffer로 읽기
     const fileBuffer = await fs.promises.readFile(filePath);
@@ -118,8 +120,9 @@ const uploadFileFinal = async (filePath, customKey = null) => {
   }
 };
 
-const getPDF = async (meetingId = "result_final_job_002") => {
+const getPDF = async () => {
   try {
+    const meetingId = "job002";
     console.log(`📄 PDF API 호출: ${meetingId}`);
     const response = await axios.get(`${URL}/meetingInfo/${meetingId}/getPdf`);
     console.log(`✅ PDF API 응답 성공`);
@@ -131,7 +134,7 @@ const getPDF = async (meetingId = "result_final_job_002") => {
 };
 
 const getMeetingInfo = async () => {
-  const meetingId = "result_intermediate_job_002";
+  const meetingId = "job002";
   try {
     const response = await axios.get(
       `${URL}/meetingInfo/${meetingId}/getSummary/latest`
