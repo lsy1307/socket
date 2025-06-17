@@ -197,11 +197,11 @@ class MeetingManager {
         const customKey = `${path.basename(newCumulativeFile)}`;
         if (isEndingMeeting) {
           // 회의 종료 시 최종 업로드
-          uploadResult = await uploadFileFinal(newCumulativeFile, customKey);
+          // uploadResult = await uploadFileFinal(newCumulativeFile, customKey);
           console.log(`☁️ 최종 파일 S3 업로드 성공: ${uploadResult.s3Url}`);
         } else {
           // 회의 중 중간 업로드
-          uploadResult = await uploadFileMiddle(newCumulativeFile, customKey);
+          // uploadResult = await uploadFileMiddle(newCumulativeFile, customKey);
           console.log(`☁️ 중간 파일 S3 업로드 성공: ${uploadResult.s3Url}`);
         }
       } catch (uploadError) {
